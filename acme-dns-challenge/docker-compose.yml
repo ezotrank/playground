@@ -1,0 +1,32 @@
+services:
+
+  acme-dns-api-presenter:
+    image: ezotrank/acme-dns-api-presenter
+    ports:
+      - "8888:8888"
+    environment:
+      - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
+
+  svc1:
+    image: ezotrank/acme-dns-challenge
+    ports:
+      - "8443:8443"
+    depends_on:
+      - acme-dns-api-presenter
+    command: -d ${DOMAINS} -u http://acme-dns-api-presenter:8888 -s
+
+  svc2:
+    image: ezotrank/acme-dns-challenge
+    ports:
+      - "8444:8443"
+    depends_on:
+      - acme-dns-api-presenter
+    command: -d ${DOMAINS} -u http://acme-dns-api-presenter:8888 -s
+
+  svc3:
+    image: ezotrank/acme-dns-challenge
+    ports:
+      - "8445:8443"
+    depends_on:
+      - acme-dns-api-presenter
+    command: -d ${DOMAINS} -u http://acme-dns-api-presenter:8888 -s
