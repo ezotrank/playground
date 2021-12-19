@@ -1,0 +1,6 @@
+### Get event
+GET http://localhost:23123/get?key=a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a40
+
+### Set new event
+GET http://localhost:23123/set?key=b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b44
+

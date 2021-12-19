@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+
+  postgres:
+    image: postgres:13.2-alpine
+    ports:
+      - "31721:5432"
+    environment:
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=db
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./migrations:/migrations
+    command: [ "-path", "/migrations", "-database", "postgres://postgres@postgres:5432/db?sslmode=disable", "up" ]
+    depends_on:
+      - postgres
+    deploy:
+      restart_policy:
+        condition: on-failure
