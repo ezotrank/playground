@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package wallet;
+
+enum UserStatus {
+  NEW = 0;
+  BANK_ACCOUNT_REGISTERED = 1;
+  BANK_ACCOUNT_REJECTED = 2;
+}
+
+message User {
+  string user_id = 1;
+  string email = 2;
+  UserStatus status = 3;
+  string bank_reject_reason = 4;
+}
+
+message UserCreateRequest {
+  string user_id = 1;
+  string email = 2;
+}
+
+message UserCreateResponse {
+  string user_id = 1;
+  string email = 2;
+  UserStatus status = 3;
+  string bank_reject_reason = 5;
+}
+
+message FundInRequest {}
+message FundInResponse {}
+
+message FundOutRequest {}
+message FundOutResponse {}
+
+service WalletService {
+  rpc UserCreate(UserCreateRequest) returns (UserCreateResponse);
+  rpc FundIn(FundInRequest) returns (FundInResponse);
+  rpc FundOut(FundOutRequest) returns (FundOutResponse);
+}

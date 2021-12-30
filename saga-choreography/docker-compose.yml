@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  redis:
+    image: redis:5-alpine3.8
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: wurstmeister/kafka:2.13-2.8.1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: "1"
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_HOST_NAME: "kafka"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT"
+      KAFKA_LISTENERS: "INSIDE://:9092,OUTSIDE://:9094"
+      KAFKA_ADVERTISED_LISTENERS: "INSIDE://:9092,OUTSIDE://localhost:9094"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INSIDE"
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"

@@ -1,0 +1,10 @@
+### Wallet. Create New User
+GRPC localhost:8080/wallet.WalletService/UserCreate
+
+{
+  "user_id": "user1",
+  "email": "user1@example.com"
+}
+
+### Wallet. Health Check
+GRPC localhost:8080/grpc.health.v1.Health/Check
