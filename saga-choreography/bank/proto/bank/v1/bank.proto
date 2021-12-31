@@ -1,14 +1,15 @@
 syntax = "proto3";
 
-package bank;
+package bank.v1;
 
 message Account {
   string account_id = 1;
   string user_id = 2;
   enum Status {
-    NEW = 0;
-    REGISTERED = 1;
-    REJECTED = 2;
+    STATUS_UNSPECIFIED = 0;
+    STATUS_NEW = 1;
+    STATUS_REGISTERED = 2;
+    STATUS_REJECTED = 3;
   }
   Status status = 3;
   string reject_reason = 4;

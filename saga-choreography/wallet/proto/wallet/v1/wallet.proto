@@ -1,11 +1,12 @@
 syntax = "proto3";
 
-package wallet;
+package wallet.v1;
 
 enum UserStatus {
-  NEW = 0;
-  BANK_ACCOUNT_REGISTERED = 1;
-  BANK_ACCOUNT_REJECTED = 2;
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_NEW = 1;
+  USER_STATUS_BANK_ACCOUNT_REGISTERED = 2;
+  USER_STATUS_BANK_ACCOUNT_REJECTED = 3;
 }
 
 message User {

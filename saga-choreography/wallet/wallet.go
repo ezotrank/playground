@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pb "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 type Config struct {

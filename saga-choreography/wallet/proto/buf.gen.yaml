@@ -2,14 +2,14 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/ezotrank/playground/saga-choreography/bank
+    default: github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go
 
 plugins:
   - name: go
-    out: gen
+    out: gen/go
     opt: paths=source_relative
   - name: go-grpc
-    out: gen
+    out: gen/go
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false

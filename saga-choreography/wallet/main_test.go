@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
-	pb "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pb "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 var resources map[string]*dockertest.Resource

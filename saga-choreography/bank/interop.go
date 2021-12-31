@@ -10,8 +10,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/ezotrank/playground/saga-choreography/bank/gen"
-	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pb "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"
+	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 const (
@@ -147,9 +147,12 @@ func (i *Interop) userConsumer(ctx context.Context) error {
 
 func (i *Interop) NewAccountEvent(ctx context.Context, account *Account) error {
 	var status pb.Account_Status
-	if val, ok := pb.Account_Status_value[string(account.Status)]; ok {
-		status = pb.Account_Status(val)
-	} else {
+	switch account.Status {
+	case AccountStatusRegistered:
+		status = pb.Account_STATUS_REJECTED
+	case AccountStatusRejected:
+		status = pb.Account_STATUS_REJECTED
+	default:
 		return fmt.Errorf("invalid account status: %s", account.Status)
 	}
 

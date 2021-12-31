@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 func TestUserRegistrationFlow(t *testing.T) {
@@ -30,7 +30,7 @@ func TestUserRegistrationFlow(t *testing.T) {
 	want := pbwallet.UserCreateResponse{
 		UserId: "1",
 		Email:  "user@example.com",
-		Status: pbwallet.UserStatus_BANK_ACCOUNT_REGISTERED,
+		Status: pbwallet.UserStatus_USER_STATUS_BANK_ACCOUNT_REGISTERED,
 	}
 	require.Equal(t, want.String(), resp.String())
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	pbbank "github.com/ezotrank/playground/saga-choreography/bank/gen"
-	pb "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pbbank "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"
+	pb "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 func TestServer_CreateUser(t *testing.T) {
@@ -59,7 +59,7 @@ func TestServer_CreateUser(t *testing.T) {
 				val, err := proto.Marshal(&pbbank.Account{
 					AccountId: "1",
 					UserId:    user.UserId,
-					Status:    pbbank.Account_REGISTERED,
+					Status:    pbbank.Account_STATUS_REGISTERED,
 				})
 				require.NoError(t, err)
 
@@ -105,7 +105,7 @@ func TestServer_CreateUser(t *testing.T) {
 		want := pb.UserCreateResponse{
 			UserId: "1",
 			Email:  "user@example.com",
-			Status: pb.UserStatus_BANK_ACCOUNT_REGISTERED,
+			Status: pb.UserStatus_USER_STATUS_BANK_ACCOUNT_REGISTERED,
 		}
 		require.Equal(t, want.String(), resp.String())
 	}
@@ -121,7 +121,7 @@ func TestServer_CreateUser(t *testing.T) {
 		want := pb.UserCreateResponse{
 			UserId: "1",
 			Email:  "user@example.com",
-			Status: pb.UserStatus_BANK_ACCOUNT_REGISTERED,
+			Status: pb.UserStatus_USER_STATUS_BANK_ACCOUNT_REGISTERED,
 		}
 		require.Equal(t, want.String(), resp.String())
 	}

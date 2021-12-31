@@ -8,7 +8,7 @@ import (
 
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	pb "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pb "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 type Server struct {
@@ -46,9 +46,14 @@ Loop:
 	}
 
 	var status pb.UserStatus
-	if val, ok := pb.UserStatus_value[string(user.Status)]; ok {
-		status = pb.UserStatus(val)
-	} else {
+	switch user.Status {
+	case UserStatusNew:
+		status = pb.UserStatus_USER_STATUS_NEW
+	case UserStatusBankAccountRegistered:
+		status = pb.UserStatus_USER_STATUS_BANK_ACCOUNT_REGISTERED
+	case UserStatusBankAccountRejected:
+		status = pb.UserStatus_USER_STATUS_BANK_ACCOUNT_REJECTED
+	default:
 		return nil, fmt.Errorf("failed to convert user status: %v", user.Status)
 	}
 

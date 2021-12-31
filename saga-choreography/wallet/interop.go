@@ -9,8 +9,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
-	pbbank "github.com/ezotrank/playground/saga-choreography/bank/gen"
-	pb "github.com/ezotrank/playground/saga-choreography/wallet/gen"
+	pbbank "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"
+	pb "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 const (
@@ -120,11 +120,11 @@ func (i *Interop) bankConsumer(ctx context.Context) error {
 
 			var status UserStatus
 			switch account.Status {
-			case pbbank.Account_REGISTERED:
+			case pbbank.Account_STATUS_REGISTERED:
 				status = UserStatusBankAccountRegistered
-			case pbbank.Account_REJECTED:
+			case pbbank.Account_STATUS_REJECTED:
 				status = UserStatusBankAccountRejected
-			case pbbank.Account_NEW:
+			case pbbank.Account_STATUS_NEW:
 			default:
 				return fmt.Errorf("unknown bank status: %v", account.Status)
 			}
@@ -145,7 +145,7 @@ func (i *Interop) NewUserEvent(ctx context.Context, u *User) error {
 	pbuser := pb.User{
 		UserId: u.UserID,
 		Email:  u.Email,
-		Status: pb.UserStatus_NEW,
+		Status: pb.UserStatus_USER_STATUS_NEW,
 	}
 
 	val, err := proto.Marshal(&pbuser)
