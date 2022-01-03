@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine as backend
+FROM golang:1.17.5-alpine3.15 as backend
 
 ENV CGO_ENABLED=0
 

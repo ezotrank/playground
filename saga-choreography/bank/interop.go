@@ -149,7 +149,7 @@ func (i *Interop) NewAccountEvent(ctx context.Context, account *Account) error {
 	var status pb.Account_Status
 	switch account.Status {
 	case AccountStatusRegistered:
-		status = pb.Account_STATUS_REJECTED
+		status = pb.Account_STATUS_REGISTERED
 	case AccountStatusRejected:
 		status = pb.Account_STATUS_REJECTED
 	default:
