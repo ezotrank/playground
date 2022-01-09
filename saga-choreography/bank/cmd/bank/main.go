@@ -8,13 +8,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/kelseyhightower/envconfig"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/external"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/handler"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/interop"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/producer"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/server"
 )
 
 const (
@@ -60,33 +66,29 @@ func main() {
 		grpc.ChainUnaryInterceptor(),
 	}
 
-	server := grpc.NewServer(opts...)
-	reflection.Register(server)
+	gsrv := grpc.NewServer(opts...)
+	reflection.Register(gsrv)
 
-	repo := &Repository{
-		rdb: redis.NewClient(&redis.Options{
-			Addr: cfg.RedisAddr,
-			DB:   cfg.RedisDB,
-		}),
-	}
-	producer := NewProducer(cfg.KafkaAddr)
-	external := NewExternal(cfg.ExternalAddr)
-	handler := NewHandler(repo, producer, external)
+	hdlr := handler.NewHandler(
+		repository.NewRepository(cfg.RedisAddr, cfg.RedisDB),
+		producer.NewProducer(cfg.KafkaAddr),
+		external.NewExternal(cfg.ExternalAddr),
+	)
 
-	err = CreateTopic([]string{cfg.KafkaAddr}, topicWalletUsersRetry, topicWalletUsersDLQ)
+	err = interop.CreateTopic([]string{cfg.KafkaAddr}, topicWalletUsersRetry, topicWalletUsersDLQ)
 	if err != nil {
 		log.Panicln("failed create topic:", err)
 	}
 
-	interop, err := NewInterop([]string{cfg.KafkaAddr}, Flow{
-		rules: map[string]Rule{
+	inrpt, err := interop.NewInterop([]string{cfg.KafkaAddr}, interop.Flow{
+		Rules: map[string]interop.Rule{
 			topicWalletUsers: {
-				Handler:  handler.WalletUsersHandler,
+				Handler:  hdlr.WalletUsersHandler,
 				Attempts: 1,
 				DLQ:      topicWalletUsersRetry,
 			},
 			topicWalletUsersRetry: {
-				Handler:  handler.WalletUsersHandler,
+				Handler:  hdlr.WalletUsersHandler,
 				Attempts: 3,
 				DLQ:      topicWalletUsersDLQ,
 			},
@@ -96,34 +98,34 @@ func main() {
 		log.Fatalf("failed to create interop: %v", err)
 	}
 
-	srv := &Server{}
-	grpc_health_v1.RegisterHealthServer(server, srv)
+	srv := &server.Server{}
+	grpc_health_v1.RegisterHealthServer(gsrv, srv)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		errc := make(chan error, 1)
+		errc := make(chan error)
 
 		go func() {
 			log.Printf("starting gRPC on %s", lis.Addr())
-			errc <- server.Serve(lis)
+			errc <- gsrv.Serve(lis)
 		}()
 
 		select {
 		case <-ctx.Done():
-			server.GracefulStop()
+			gsrv.GracefulStop()
+			return nil
 		case err := <-errc:
 			return err
 		}
-
-		return nil
 	})
 	g.Go(func() error {
 		log.Println("starting interop")
-		return interop.Start(ctx)
+		return inrpt.Start(ctx)
 	})
 
+	// If some routine can't be stopped, the whole program will be terminated.
 	go func() {
 		<-ctx.Done()
 		<-time.Tick(time.Second * 30)

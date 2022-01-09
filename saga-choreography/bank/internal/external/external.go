@@ -1,4 +1,4 @@
-package main
+package external
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
 )
 
 func NewExternal(addr string) *External {
@@ -19,7 +21,7 @@ type External struct {
 	addr string
 }
 
-func (e External) CreateAccount(ctx context.Context, account *Account) error {
+func (e External) CreateAccount(ctx context.Context, account *repository.Account) error {
 	body, err := json.Marshal(account)
 	if err != nil {
 		return fmt.Errorf("failed to marshal account: %v", err)
@@ -38,9 +40,9 @@ func (e External) CreateAccount(ctx context.Context, account *Account) error {
 	}
 	switch {
 	case resp.StatusCode == http.StatusOK:
-		account.Status = AccountStatusRegistered
+		account.Status = repository.AccountStatusRegistered
 	case resp.StatusCode == http.StatusBadRequest:
-		account.Status = AccountStatusRejected
+		account.Status = repository.AccountStatusRejected
 	default:
 		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
 	}

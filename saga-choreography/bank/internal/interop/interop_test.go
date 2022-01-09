@@ -1,6 +1,6 @@
-//go:generate mockgen -source=interop.go -destination=mock_interop.go -package=main
+//go:generate mockgen -source=interop.go -destination=../mocks/mock_interop.go -package=mocks
 
-package main
+package interop
 
 import (
 	"context"
@@ -10,13 +10,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/mocks"
 )
 
 func TestInterop_Start(t *testing.T) {
 	type fields struct {
 		flow   Flow
-		reader *Mockireader
-		writer *Mockiwriter
+		reader *mocks.Mockireader
+		writer *mocks.Mockiwriter
 	}
 	tests := []struct {
 		name    string
@@ -27,7 +29,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "success flow",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return nil
@@ -63,7 +65,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "fetch message error",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return nil
@@ -83,7 +85,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "message with unknown topic",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return nil
@@ -103,7 +105,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "handle return error without retry policy",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return fmt.Errorf("error")
@@ -124,7 +126,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "commit message return error",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return nil
@@ -153,7 +155,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "handle return error with retry policy",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return fmt.Errorf("error")
@@ -228,7 +230,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "handle return error with retry policy and DLQ",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return fmt.Errorf("error")
@@ -272,7 +274,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "handle return error only first retry policy is set",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							if getAttempts(msg.Headers) == 2 {
@@ -337,7 +339,7 @@ func TestInterop_Start(t *testing.T) {
 		{
 			name: "handle return error dlq is set with retries",
 			flow: Flow{
-				rules: map[string]Rule{
+				Rules: map[string]Rule{
 					"topic1": {
 						Handler: func(ctx context.Context, msg kafka.Message) error {
 							return fmt.Errorf("error")
@@ -469,8 +471,8 @@ func TestInterop_Start(t *testing.T) {
 
 			f := fields{
 				flow:   tt.flow,
-				reader: NewMockireader(ctrl),
-				writer: NewMockiwriter(ctrl),
+				reader: mocks.NewMockireader(ctrl),
+				writer: mocks.NewMockiwriter(ctrl),
 			}
 
 			if tt.prepare != nil {

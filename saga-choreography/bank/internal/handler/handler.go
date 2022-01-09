@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"context"
@@ -7,21 +7,22 @@ import (
 	"github.com/segmentio/kafka-go"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
 	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
 type IRepository interface {
-	SaveAccount(ctx context.Context, account *Account) error
-	SaveTransaction(ctx context.Context, transaction *Transaction) error
+	SaveAccount(ctx context.Context, account *repository.Account) error
+	SaveTransaction(ctx context.Context, transaction *repository.Transaction) error
 }
 
 type IProducer interface {
-	NewAccountEvent(ctx context.Context, account *Account) error
-	NewTransactionEvent(ctx context.Context, transaction *Transaction) error
+	NewAccountEvent(ctx context.Context, account *repository.Account) error
+	NewTransactionEvent(ctx context.Context, transaction *repository.Transaction) error
 }
 
 type IExternalServiceClient interface {
-	CreateAccount(ctx context.Context, account *Account) error
+	CreateAccount(ctx context.Context, account *repository.Account) error
 }
 
 func NewHandler(repo IRepository, producer IProducer, external IExternalServiceClient) *Handler {
@@ -44,10 +45,10 @@ func (h *Handler) WalletUsersHandler(ctx context.Context, msg kafka.Message) err
 		return fmt.Errorf("failed to unmarshal wallet user: %v", err)
 	}
 
-	account := &Account{
+	account := &repository.Account{
 		AccountID: user.UserId,
 		UserID:    user.UserId,
-		Status:    AccountStatusRegistered,
+		Status:    repository.AccountStatusRegistered,
 	}
 
 	if err := h.external.CreateAccount(ctx, account); err != nil {
@@ -71,13 +72,13 @@ func (h *Handler) WalletTransactionsHandler(ctx context.Context, msg kafka.Messa
 		return fmt.Errorf("failed to unmarshal wallet transaction: %v", err)
 	}
 
-	trx := &Transaction{
+	trx := &repository.Transaction{
 		TransactionID: pbtrx.TransactionId,
 		AccountID:     pbtrx.UserId, // TODO(ezo): change to account id
 		Amount:        int(pbtrx.Amount),
 	}
 
-	trx.Status = TransactionStatusSucceed
+	trx.Status = repository.TransactionStatusSucceed
 	if err := h.repo.SaveTransaction(ctx, trx); err != nil {
 		return fmt.Errorf("failed to save transaction: %v", err)
 	}

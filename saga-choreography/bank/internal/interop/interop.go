@@ -1,4 +1,4 @@
-package main
+package interop
 
 import (
 	"context"
@@ -20,12 +20,12 @@ type Rule struct {
 }
 
 type Flow struct {
-	rules map[string]Rule
+	Rules map[string]Rule
 }
 
 func listenTopics(flow Flow) []string {
-	topics := make([]string, 0, len(flow.rules))
-	for topic := range flow.rules {
+	topics := make([]string, 0, len(flow.Rules))
+	for topic := range flow.Rules {
 		topics = append(topics, topic)
 	}
 
@@ -76,7 +76,7 @@ func (i *Interop) Start(ctx context.Context) error {
 				return
 			}
 
-			rule, ok := i.flow.rules[msg.Topic]
+			rule, ok := i.flow.Rules[msg.Topic]
 			if !ok {
 				errc <- fmt.Errorf("no rule for topic: %s", msg.Topic)
 				return
@@ -144,7 +144,7 @@ func setAttempts(headers []kafka.Header, num int) []kafka.Header {
 
 func (i *Interop) retry(ctx context.Context, msg kafka.Message, err error) error {
 	attempts := getAttempts(msg.Headers)
-	rule := i.flow.rules[msg.Topic]
+	rule := i.flow.Rules[msg.Topic]
 
 	if attempts >= rule.Attempts {
 		if rule.DLQ == "" {

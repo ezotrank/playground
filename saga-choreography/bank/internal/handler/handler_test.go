@@ -1,6 +1,6 @@
-//go:generate mockgen -source=handler.go -destination=mock_handler.go -package=main
+//go:generate mockgen -source=handler.go -destination=../mocks/mock_handler.go -package=mocks
 
-package main
+package handler
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"github.com/segmentio/kafka-go"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/mocks"
+	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
 	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
 )
 
@@ -24,9 +26,9 @@ func marshal(msg proto.Message) []byte {
 
 func TestHandler_WalletUsersHandler(t *testing.T) {
 	type fields struct {
-		repo     *MockIRepository
-		external *MockIExternalServiceClient
-		producer *MockIProducer
+		repo     *mocks.MockIRepository
+		external *mocks.MockIExternalServiceClient
+		producer *mocks.MockIProducer
 	}
 	type args struct {
 		ctx context.Context
@@ -42,28 +44,28 @@ func TestHandler_WalletUsersHandler(t *testing.T) {
 			name: "success event processing",
 			prepare: func(f *fields) {
 				f.external.EXPECT().
-					CreateAccount(gomock.Any(), &Account{
+					CreateAccount(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(nil).
 					Times(1)
 				f.repo.
 					EXPECT().
-					SaveAccount(gomock.Any(), &Account{
+					SaveAccount(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(nil).
 					Times(1)
 				f.producer.
 					EXPECT().
-					NewAccountEvent(gomock.Any(), &Account{
+					NewAccountEvent(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(nil).
 					Times(1)
@@ -83,28 +85,28 @@ func TestHandler_WalletUsersHandler(t *testing.T) {
 			name: "failed to send new account event",
 			prepare: func(f *fields) {
 				f.external.EXPECT().
-					CreateAccount(gomock.Any(), &Account{
+					CreateAccount(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(nil).
 					Times(1)
 				f.repo.
 					EXPECT().
-					SaveAccount(gomock.Any(), &Account{
+					SaveAccount(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(nil).
 					Times(1)
 				f.producer.
 					EXPECT().
-					NewAccountEvent(gomock.Any(), &Account{
+					NewAccountEvent(gomock.Any(), &repository.Account{
 						AccountID: "1",
 						UserID:    "1",
-						Status:    AccountStatusRegistered,
+						Status:    repository.AccountStatusRegistered,
 					}).
 					Return(fmt.Errorf("failed to send")).
 					Times(1)
@@ -126,9 +128,9 @@ func TestHandler_WalletUsersHandler(t *testing.T) {
 			ctrl := gomock.NewController(t)
 
 			f := fields{
-				repo:     NewMockIRepository(ctrl),
-				external: NewMockIExternalServiceClient(ctrl),
-				producer: NewMockIProducer(ctrl),
+				repo:     mocks.NewMockIRepository(ctrl),
+				external: mocks.NewMockIExternalServiceClient(ctrl),
+				producer: mocks.NewMockIProducer(ctrl),
 			}
 
 			if tt.prepare != nil {

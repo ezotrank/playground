@@ -1,4 +1,4 @@
-package main
+package repository
 
 import (
 	"context"
@@ -32,6 +32,15 @@ type Transaction struct {
 	Amount        int               `json:"amount"`
 	Status        TransactionStatus `json:"status"`
 	FailedReason  string            `json:"failed_reason"`
+}
+
+func NewRepository(addr string, db int) *Repository {
+	return &Repository{
+		rdb: redis.NewClient(&redis.Options{
+			Addr: addr,
+			DB:   db,
+		}),
+	}
 }
 
 type Repository struct {
