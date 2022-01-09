@@ -3,6 +3,8 @@ managed:
   enabled: true
   go_package_prefix:
     default: github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go
+    except:
+      - buf.build/googleapis/googleapis
 
 plugins:
   - name: go

@@ -2,23 +2,43 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/kelseyhightower/envconfig"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
+const (
+	// producer
+	topicBankAccounts     = "bank.accounts"
+	topicBankTransactions = "bank.transactions"
+
+	// consumer
+	topicWalletUsers        = "wallet.users"
+	topicWalletTransactions = "wallet.transactions"
+
+	// WithRetry retry
+	topicWalletUsersRetry        = "wallet.users__bank-interop__retry"
+	topicWalletUsersDLQ          = "wallet.users__bank-interop__dlq"
+	topicWalletTransactionsRetry = "wallet.transactions__bank-interop__retry"
+	topicWalletTransactionsDLQ   = "wallet.transactions__bank-interop__dlq"
+)
+
 type Config struct {
-	ServerAddr string `split_words:"true" default:":8080" required:"true"`
-	RedisAddr  string `split_words:"true" default:"localhost:6379" required:"true"`
-	RedisDB    int    `split_words:"true" default:"1" required:"true"`
-	KafkaAddr  string `split_words:"true" default:"localhost:9092" required:"true"`
+	ServerAddr   string `split_words:"true" default:":8080" required:"true"`
+	RedisAddr    string `split_words:"true" default:"localhost:6379" required:"true"`
+	RedisDB      int    `split_words:"true" default:"1" required:"true"`
+	KafkaAddr    string `split_words:"true" default:"localhost:9092" required:"true"`
+	ExternalAddr string `split_words:"true" default:"localhost:9999" required:"true"`
 }
 
 func main() {
@@ -49,34 +69,68 @@ func main() {
 			DB:   cfg.RedisDB,
 		}),
 	}
+	producer := NewProducer(cfg.KafkaAddr)
+	external := NewExternal(cfg.ExternalAddr)
+	handler := NewHandler(repo, producer, external)
 
-	interop, err := NewInterop([]string{cfg.KafkaAddr}, repo)
+	err = CreateTopic([]string{cfg.KafkaAddr}, topicWalletUsersRetry, topicWalletUsersDLQ)
+	if err != nil {
+		log.Panicln("failed create topic:", err)
+	}
+
+	interop, err := NewInterop([]string{cfg.KafkaAddr}, Flow{
+		rules: map[string]Rule{
+			topicWalletUsers: {
+				Handler:  handler.WalletUsersHandler,
+				Attempts: 1,
+				DLQ:      topicWalletUsersRetry,
+			},
+			topicWalletUsersRetry: {
+				Handler:  handler.WalletUsersHandler,
+				Attempts: 3,
+				DLQ:      topicWalletUsersDLQ,
+			},
+		},
+	})
 	if err != nil {
 		log.Fatalf("failed to create interop: %v", err)
 	}
-	ctx := context.Background()
 
 	srv := &Server{}
 	grpc_health_v1.RegisterHealthServer(server, srv)
 
-	errc := make(chan error, 1)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		errc := make(chan error, 1)
 
-	go func() {
-		log.Printf("starting gRPC on %s", lis.Addr())
-		if err := server.Serve(lis); err != nil {
-			errc <- fmt.Errorf("failed to serve: %v", err)
+		go func() {
+			log.Printf("starting gRPC on %s", lis.Addr())
+			errc <- server.Serve(lis)
+		}()
+
+		select {
+		case <-ctx.Done():
+			server.GracefulStop()
+		case err := <-errc:
+			return err
 		}
-	}()
 
-	go func() {
+		return nil
+	})
+	g.Go(func() error {
 		log.Println("starting interop")
-		if err := interop.Start(ctx); err != nil {
-			errc <- fmt.Errorf("failed to start interop: %v", err)
-		}
+		return interop.Start(ctx)
+	})
+
+	go func() {
+		<-ctx.Done()
+		<-time.Tick(time.Second * 30)
+		log.Panicln("shutdown is exceed timeout")
 	}()
 
-	select {
-	case err := <-errc:
-		log.Fatalf("failed: %v", err)
+	if err := g.Wait(); err != nil {
+		log.Panicln(err)
 	}
 }

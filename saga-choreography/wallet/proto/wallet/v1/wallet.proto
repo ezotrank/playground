@@ -16,6 +16,19 @@ message User {
   string bank_reject_reason = 4;
 }
 
+enum TransactionStatus {
+  TRANSACTION_STATUS_UNSPECIFIED = 0;
+  TRANSACTION_STATUS_SUCCESS = 1;
+  TRANSACTION_STATUS_REJECTED = 2;
+}
+
+message Transaction {
+  string transaction_id = 1;
+  string user_id = 2;
+  int64 amount = 3;
+  TransactionStatus status = 4;
+}
+
 message UserCreateRequest {
   string user_id = 1;
   string email = 2;
@@ -28,8 +41,20 @@ message UserCreateResponse {
   string bank_reject_reason = 5;
 }
 
-message FundInRequest {}
-message FundInResponse {}
+message FundInRequest {
+  string user_id = 1;
+  string transaction_id = 2;
+  // TODO(ezo): switch to money
+  //  google.type.Money amount = 3;
+  int64 amount = 3;
+}
+
+message FundInResponse {
+  string user_id = 1;
+  string transaction_id = 2;
+  int64 amount = 3;
+  TransactionStatus status = 4;
+}
 
 message FundOutRequest {}
 message FundOutResponse {}

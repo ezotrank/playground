@@ -1,0 +1,4 @@
+user_id: "bad user 7"
+email: "email"
+status: USER_STATUS_UNSPECIFIED
+bank_reject_reason: ""

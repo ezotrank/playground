@@ -3,95 +3,167 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
-	"strings"
+	"strconv"
 
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
-
-	pb "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"
-	pbwallet "github.com/ezotrank/playground/saga-choreography/wallet/proto/gen/go/wallet/v1"
-)
-
-const (
-	// producer
-	topicBankAccounts = "bank.accounts"
-
-	// consumer
-	topicWalletUsers = "wallet.users"
 )
 
 const consumerGroup = "bank-interop"
 
-func NewInterop(brokers []string, repo *Repository) (*Interop, error) {
-	if err := CreateTopic(brokers, topicBankAccounts); err != nil {
-		return nil, fmt.Errorf("failed to create topic %s: %w", topicBankAccounts, err)
+type Rule struct {
+	Handler  func(ctx context.Context, msg kafka.Message) error
+	DLQ      string // if dlq is empty, returns error on failure.
+	Attempts int    // retry attempts before sending to DLQ.
+}
+
+type Flow struct {
+	rules map[string]Rule
+}
+
+func listenTopics(flow Flow) []string {
+	topics := make([]string, 0, len(flow.rules))
+	for topic := range flow.rules {
+		topics = append(topics, topic)
 	}
 
+	return topics
+}
+
+func NewInterop(brokers []string, flow Flow) (*Interop, error) {
 	return &Interop{
-		repo: repo,
+		flow: flow,
 		writer: &kafka.Writer{
-			Addr:  kafka.TCP(brokers...),
-			Topic: topicBankAccounts,
+			Addr: kafka.TCP(brokers...),
 		},
 		reader: kafka.NewReader(kafka.ReaderConfig{
-			Brokers: brokers,
-			Topic:   topicWalletUsers,
-			GroupID: consumerGroup,
+			Brokers:     brokers,
+			GroupTopics: listenTopics(flow),
+			GroupID:     consumerGroup,
 		}),
 	}, nil
 }
 
-func CreateTopic(brokers []string, name string) error {
-	if len(brokers) == 0 {
-		return fmt.Errorf("no brokers provided")
-	}
-	conn, err := kafka.Dial("tcp", brokers[0])
-	if err != nil {
-		return fmt.Errorf("failed to connect to kafka broker: %v", err)
-	}
+type ireader interface {
+	FetchMessage(ctx context.Context) (kafka.Message, error)
+	CommitMessages(ctx context.Context, messages ...kafka.Message) error
+	Close() error
+}
 
-	// Hack to not get a "Not Available: the cluster is in the middle" error in WriteMessages.
-	// Create or check if topics exist.
-	if err := conn.CreateTopics(
-		kafka.TopicConfig{
-			Topic:             name,
-			NumPartitions:     1,
-			ReplicationFactor: 1,
-		},
-	); err != nil {
-		return fmt.Errorf("failed to create topic: %v", err)
-	}
-
-	return nil
+type iwriter interface {
+	WriteMessages(ctx context.Context, messages ...kafka.Message) error
+	Close() error
 }
 
 type Interop struct {
-	repo   *Repository
-	writer *kafka.Writer
-	reader *kafka.Reader
+	flow   Flow
+	reader ireader
+	writer iwriter
 }
 
 func (i *Interop) Start(ctx context.Context) error {
 	errc := make(chan error, 1)
 
 	go func() {
-		if err := i.userConsumer(ctx); err != nil {
-			errc <- err
+		for {
+			msg, err := i.reader.FetchMessage(ctx)
+			if err == io.EOF {
+				errc <- nil
+			} else if err != nil {
+				errc <- fmt.Errorf("failed fetch message: %w", err)
+				return
+			}
+
+			rule, ok := i.flow.rules[msg.Topic]
+			if !ok {
+				errc <- fmt.Errorf("no rule for topic: %s", msg.Topic)
+				return
+			}
+
+			//// TODO(ezo): not sexy
+			msg.Headers = setAttempts(msg.Headers, getAttempts(msg.Headers)+1)
+			if err := rule.Handler(ctx, msg); err != nil {
+				if err := i.retry(ctx, msg, err); err != nil {
+					errc <- err
+					return
+				}
+			}
+
+			if err := i.reader.CommitMessages(ctx, msg); err != nil {
+				errc <- err
+				return
+			}
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		return i.shutdown(ctx)
+		if err := i.shutdown(); err != nil {
+			return fmt.Errorf("failed shutdown: %w", err)
+		}
 	case err := <-errc:
 		return err
 	}
+
+	return nil
 }
 
-func (i *Interop) shutdown(ctx context.Context) error {
-	g, ctx := errgroup.WithContext(ctx)
+const attemptsHeader = "attempts"
+
+func getAttempts(headers []kafka.Header) int {
+	for _, header := range headers {
+		if header.Key == attemptsHeader {
+			if val, err := strconv.Atoi(string(header.Value)); err != nil {
+				log.Printf("failed to parse attempts header: %s", err)
+			} else {
+				return val
+			}
+		}
+	}
+
+	return 0
+}
+
+func setAttempts(headers []kafka.Header, num int) []kafka.Header {
+	// To prevent change origin data
+	nhs := append([]kafka.Header{}, headers...)
+	for i, h := range nhs {
+		if h.Key == attemptsHeader {
+			nhs[i].Value = []byte(strconv.Itoa(num))
+			return nhs
+		}
+	}
+
+	return append(nhs, kafka.Header{
+		Key:   attemptsHeader,
+		Value: []byte(strconv.Itoa(num)),
+	})
+}
+
+func (i *Interop) retry(ctx context.Context, msg kafka.Message, err error) error {
+	attempts := getAttempts(msg.Headers)
+	rule := i.flow.rules[msg.Topic]
+
+	if attempts >= rule.Attempts {
+		if rule.DLQ == "" {
+			return err
+		}
+
+		msg.Topic = rule.DLQ
+		msg.Headers = setAttempts(msg.Headers, 0)
+	}
+
+	if err := i.writer.WriteMessages(ctx, msg); err != nil {
+		return fmt.Errorf("failed to write message: %w", err)
+	}
+
+	return nil
+}
+
+func (i *Interop) shutdown() error {
+	g := errgroup.Group{}
 	g.Go(func() error {
 		return i.reader.Close()
 	})
@@ -102,77 +174,29 @@ func (i *Interop) shutdown(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (i *Interop) userConsumer(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-			ctx := context.Background()
-			msg, err := i.reader.FetchMessage(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to fetch message: %v", err)
-			}
-
-			var user pbwallet.User
-			if err := proto.Unmarshal(msg.Value, &user); err != nil {
-				return fmt.Errorf("failed to unmarshal wallet user: %v", err)
-			}
-
-			account := &Account{
-				AccountID: user.UserId,
-				UserID:    user.UserId,
-				Status:    AccountStatusRegistered,
-			}
-
-			if strings.HasPrefix(user.UserId, "bad") {
-				account.Status = AccountStatusRejected
-				account.RejectReason = "bad user id"
-			}
-
-			if _, err := i.repo.SaveAccount(ctx, account); err != nil {
-				return fmt.Errorf("failed to save account: %v", err)
-			}
-
-			if err := i.NewAccountEvent(ctx, account); err != nil {
-				return fmt.Errorf("failed to send account event: %v", err)
-			}
-
-			if err := i.reader.CommitMessages(ctx, msg); err != nil {
-				return fmt.Errorf("failed to commit message: %v", err)
-			}
-		}
+func CreateTopic(brokers []string, topics ...string) error {
+	if len(brokers) == 0 {
+		return fmt.Errorf("no brokers provided")
 	}
-}
-
-func (i *Interop) NewAccountEvent(ctx context.Context, account *Account) error {
-	var status pb.Account_Status
-	switch account.Status {
-	case AccountStatusRegistered:
-		status = pb.Account_STATUS_REGISTERED
-	case AccountStatusRejected:
-		status = pb.Account_STATUS_REJECTED
-	default:
-		return fmt.Errorf("invalid account status: %s", account.Status)
-	}
-
-	pbaccount := pb.Account{
-		AccountId: account.AccountID,
-		UserId:    account.UserID,
-		Status:    status,
-	}
-
-	val, err := proto.Marshal(&pbaccount)
+	conn, err := kafka.Dial("tcp", brokers[0])
 	if err != nil {
-		log.Fatalln("failed to marshal account:", err)
+		return fmt.Errorf("failed to connect to kafka broker: %v", err)
 	}
 
-	if err := i.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(pbaccount.AccountId),
-		Value: val,
-	}); err != nil {
-		return fmt.Errorf("failed to write message: %w", err)
+	// Hack to not get a "Not Available: the cluster is in the middle" error in WriteMessages.
+	// Create or check if topics exist.
+	wg := errgroup.Group{}
+	for _, topic := range topics {
+		topic := topic
+		wg.Go(func() error {
+			return conn.CreateTopics(
+				kafka.TopicConfig{
+					Topic:             topic,
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+				},
+			)
+		})
 	}
-
-	return nil
+	return wg.Wait()
 }
