@@ -11,8 +11,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const consumerGroup = "bank-interop"
-
 type Rule struct {
 	Handler  func(ctx context.Context, msg kafka.Message) error
 	DLQ      string // if dlq is empty, returns error on failure.
@@ -32,16 +30,17 @@ func listenTopics(flow Flow) []string {
 	return topics
 }
 
-func NewInterop(brokers []string, flow Flow) (*Interop, error) {
+func NewInterop(brokers []string, flow Flow, gc string) (*Interop, error) {
 	return &Interop{
 		flow: flow,
+		gc:   gc,
 		writer: &kafka.Writer{
 			Addr: kafka.TCP(brokers...),
 		},
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:     brokers,
 			GroupTopics: listenTopics(flow),
-			GroupID:     consumerGroup,
+			GroupID:     gc,
 		}),
 	}, nil
 }
@@ -59,6 +58,7 @@ type iwriter interface {
 
 type Interop struct {
 	flow   Flow
+	gc     string
 	reader ireader
 	writer iwriter
 }

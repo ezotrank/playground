@@ -71,7 +71,12 @@ func main() {
 
 	hdlr := handler.NewHandler(
 		repository.NewRepository(cfg.RedisAddr, cfg.RedisDB),
-		producer.NewProducer(cfg.KafkaAddr),
+		producer.NewProducer(
+			producer.Topics{
+				BankAccountsTopic: topicBankAccounts,
+			},
+			cfg.KafkaAddr,
+		),
 		external.NewExternal(cfg.ExternalAddr),
 	)
 
@@ -93,7 +98,7 @@ func main() {
 				DLQ:      topicWalletUsersDLQ,
 			},
 		},
-	})
+	}, "bank-interop")
 	if err != nil {
 		log.Fatalf("failed to create interop: %v", err)
 	}

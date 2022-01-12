@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-redis/redis/v8"
 	"github.com/go-zookeeper/zk"
+	"github.com/google/uuid"
 	"github.com/ory/dockertest/v3"
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
@@ -202,7 +203,11 @@ func KafkaStart(pool *dockertest.Pool) *dockertest.Resource {
 	return res
 }
 
-func CreateTopic(brokers []string, topics ...string) error {
+func KafkaGetBroker() string {
+	return "localhost:" + resources["kafka"].GetPort("9094/tcp")
+}
+
+func KafkaCreateTopic(brokers []string, topics ...string) error {
 	if len(brokers) == 0 {
 		return fmt.Errorf("no brokers provided")
 	}
@@ -227,4 +232,8 @@ func CreateTopic(brokers []string, topics ...string) error {
 		})
 	}
 	return wg.Wait()
+}
+
+func randstr() string {
+	return uuid.New().String()
 }

@@ -12,13 +12,13 @@ import (
 	pb "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"
 )
 
-const (
-	bankAccountsTopic = "bank.accounts"
-)
+type Topics struct {
+	BankAccountsTopic string
+}
 
-func NewProducer(brokers ...string) *Producer {
+func NewProducer(topics Topics, brokers ...string) *Producer {
 	return &Producer{
-		BankAccountsTopic: bankAccountsTopic,
+		BankAccountsTopic: topics.BankAccountsTopic,
 		writer: &kafka.Writer{
 			Addr:     kafka.TCP(brokers...),
 			Balancer: &kafka.LeastBytes{},
