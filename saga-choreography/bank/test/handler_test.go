@@ -22,17 +22,19 @@ import (
 
 func TestWalletUsers(t *testing.T) {
 	broker := KafkaGetBroker()
+	redis := RedisAddr()
 
 	type fields struct {
 		topicu string
 		topica string
 		gc     string
+		repo   *repository.Repository
 		flow   interop.Flow
 	}
 	tests := []struct {
 		name      string
 		prepare   func(f *fields)
-		account   repository.Account
+		accounts  []*repository.Account
 		umsg      []kafka.Message
 		amsg      []kafka.Message
 		topicuoff int64
@@ -47,15 +49,14 @@ func TestWalletUsers(t *testing.T) {
 
 				require.NoError(t, KafkaCreateTopic([]string{broker}, f.topicu, f.topica))
 
+				f.repo = repository.NewRepository(redis, 0)
+
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}))
 
 				hndlr := handler.NewHandler(
-					repository.NewRepository(
-						"localhost:"+resources["redis"].GetPort("6379/tcp"),
-						0,
-					),
+					f.repo,
 					producer.NewProducer(producer.Topics{
 						BankAccountsTopic: f.topica,
 					}, broker),
@@ -71,32 +72,55 @@ func TestWalletUsers(t *testing.T) {
 					},
 				}
 			},
-			account: repository.Account{
-				AccountID: "user",
-				UserID:    "user",
-				Status:    repository.AccountStatusRegistered,
+			accounts: []*repository.Account{
+				{
+					AccountID: "bob",
+					UserID:    "bob",
+					Status:    repository.AccountStatusRegistered,
+				},
+				{
+					AccountID: "alice",
+					UserID:    "alice",
+					Status:    repository.AccountStatusRegistered,
+				},
 			},
 			umsg: []kafka.Message{
 				{
-					Key: []byte("user"),
+					Key: []byte("bob"),
 					Value: marshal(&pbwallet.User{
-						UserId: "user",
-						Email:  "user@example.com",
+						UserId: "bob",
+						Email:  "bob@example.com",
+						Status: pbwallet.UserStatus_USER_STATUS_NEW,
+					}),
+				},
+				{
+					Key: []byte("alice"),
+					Value: marshal(&pbwallet.User{
+						UserId: "alice",
+						Email:  "alice@example.com",
 						Status: pbwallet.UserStatus_USER_STATUS_NEW,
 					}),
 				},
 			},
 			amsg: []kafka.Message{
 				{
-					Key: []byte("user"),
+					Key: []byte("bob"),
 					Value: marshal(&pb.Account{
-						AccountId: "user",
-						UserId:    "user",
+						AccountId: "bob",
+						UserId:    "bob",
+						Status:    pb.Account_STATUS_REGISTERED,
+					}),
+				},
+				{
+					Key: []byte("alice"),
+					Value: marshal(&pb.Account{
+						AccountId: "alice",
+						UserId:    "alice",
 						Status:    pb.Account_STATUS_REGISTERED,
 					}),
 				},
 			},
-			topicuoff: 1,
+			topicuoff: 2,
 			wantErr:   false,
 		},
 		{
@@ -113,13 +137,8 @@ func TestWalletUsers(t *testing.T) {
 				}))
 
 				hndlr := handler.NewHandler(
-					repository.NewRepository(
-						"localhost:"+resources["redis"].GetPort("6379/tcp"),
-						0,
-					),
-					producer.NewProducer(producer.Topics{
-						BankAccountsTopic: f.topica,
-					}, broker),
+					&repository.Repository{},
+					&producer.Producer{},
 					external.NewExternal(srv.URL),
 				)
 
@@ -132,13 +151,13 @@ func TestWalletUsers(t *testing.T) {
 					},
 				}
 			},
-			account: repository.Account{},
+			accounts: []*repository.Account{},
 			umsg: []kafka.Message{
 				{
-					Key: []byte("user"),
+					Key: []byte("alice"),
 					Value: marshal(&pbwallet.User{
-						UserId: "user",
-						Email:  "user@example.com",
+						UserId: "alice",
+						Email:  "alice@example.com",
 						Status: pbwallet.UserStatus_USER_STATUS_NEW,
 					}),
 				},
@@ -151,13 +170,13 @@ func TestWalletUsers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			defer purge()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
 			f := fields{}
 			if tt.prepare != nil {
 				tt.prepare(&f)
 			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 			intr, err := interop.NewInterop([]string{broker}, f.flow, f.gc)
 			require.NoError(t, err)
@@ -203,6 +222,12 @@ func TestWalletUsers(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, resp.Error)
 			require.Equal(t, tt.topicuoff, resp.Topics[f.topicu][0].CommittedOffset)
+
+			for _, want := range tt.accounts {
+				got, err := f.repo.GetAccountByID(context.Background(), want.AccountID)
+				require.NoError(t, err)
+				require.Equal(t, want, got)
+			}
 		})
 	}
 }

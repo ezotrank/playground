@@ -31,9 +31,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func purge(t *testing.T) {
+func purge() {
 	if err := FlushRedis(resources["redis"]); err != nil {
-		t.Fatalf("failed flush redis %s", err)
+		panic("failed flush redis " + err.Error())
 	}
 }
 
@@ -122,6 +122,10 @@ func FlushRedis(res *dockertest.Resource) error {
 	}
 
 	return nil
+}
+
+func RedisAddr() string {
+	return fmt.Sprintf("localhost:%s", resources["redis"].GetPort("6379/tcp"))
 }
 
 func ZooKeeperStart(pool *dockertest.Pool) *dockertest.Resource {

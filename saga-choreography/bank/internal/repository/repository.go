@@ -72,3 +72,19 @@ func (r *Repository) SaveTransaction(ctx context.Context, trx *Transaction) erro
 func (r *Repository) AccountGetByUserID(ctx context.Context, aid string) (*Account, error) {
 	return nil, nil
 }
+
+func (r *Repository) GetAccountByID(ctx context.Context, aid string) (*Account, error) {
+	val, err := r.rdb.Get(ctx, aid).Result()
+	if err == redis.Nil {
+		return nil, fmt.Errorf("account not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %w", err)
+	}
+
+	var account Account
+	if err := json.Unmarshal([]byte(val), &account); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account: %w", err)
+	}
+	return &account, nil
+}
