@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ezotrank/interop"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/external"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/handler"
-	"github.com/ezotrank/playground/saga-choreography/bank/internal/interop"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/producer"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
 	pb "github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go/bank/v1"

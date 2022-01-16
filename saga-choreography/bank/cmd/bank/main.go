@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/ezotrank/interop"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/external"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/handler"
-	"github.com/ezotrank/playground/saga-choreography/bank/internal/interop"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/producer"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/repository"
 	"github.com/ezotrank/playground/saga-choreography/bank/internal/server"
@@ -79,11 +79,6 @@ func main() {
 		),
 		external.NewExternal(cfg.ExternalAddr),
 	)
-
-	err = interop.CreateTopic([]string{cfg.KafkaAddr}, topicWalletUsersRetry, topicWalletUsersDLQ)
-	if err != nil {
-		log.Panicln("failed create topic:", err)
-	}
 
 	inrpt, err := interop.NewInterop([]string{cfg.KafkaAddr}, interop.Flow{
 		Rules: map[string]interop.Rule{
