@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:13.2-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
