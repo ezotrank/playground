@@ -5,11 +5,11 @@ managed:
     default: github.com/ezotrank/playground/saga-choreography/bank/proto/gen/go
 
 plugins:
-  - name: go
+  - remote: buf.build/protocolbuffers/plugins/go:v1.27.1-1
     out: gen/go
     opt:
       - paths=source_relative
-  - name: go-grpc
+  - remote: buf.build/grpc/plugins/go:v1.2.0-1
     out: gen/go
     opt:
       - paths=source_relative
