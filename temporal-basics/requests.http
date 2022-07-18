@@ -1,0 +1,11 @@
+### p2p
+GET http://localhost:8888/p2p?sender=me&receiver=you&amount=123.45
+
+### p2p async
+GET http://localhost:8888/p2p-async?sender=me&receiver=you&amount=123.45
+
+### p2p async confirm money-taken
+GET http://localhost:8888/confirm?signal=money-taken&workflow-id=5684c3e3-ab8c-4fda-8b28-138bd0cdb6a9
+
+### p2p async confirm money-added
+GET http://localhost:8888/confirm?signal=money-added&workflow-id=5684c3e3-ab8c-4fda-8b28-138bd0cdb6a9
