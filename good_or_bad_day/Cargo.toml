@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-telegram-bot = "0.8"
-tokio = { version = "0.2", features = ["full"] }
+telegram-bot = { git = "https://github.com/telegram-rs/telegram-bot", branch = "main" }
+tokio = { version = "1.2", features = ["full"] }
 futures = "0.3"
+tokio-postgres = "0.7.6"
