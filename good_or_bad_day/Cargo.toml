@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 telegram-bot = { git = "https://github.com/telegram-rs/telegram-bot", branch = "main" }
-tokio = { version = "1.2", features = ["full"] }
+tokio = { version = "1.20", features = ["full"] }
 futures = "0.3"
 tokio-postgres = "0.7.6"
