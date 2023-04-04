@@ -3,7 +3,7 @@ module github.com/ezotrank/playground/saga-choreography
 go 1.17
 
 require (
-	github.com/docker/docker v20.10.12+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/ezotrank/interop v0.0.0-20220116021516-8c34c3748026
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/go-zookeeper/zk v1.0.2
@@ -43,7 +43,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/charithe/durationcheck v0.0.9 // indirect
 	github.com/chavacava/garif v0.0.0-20210405164556-e8a0a408d6af // indirect
-	github.com/containerd/containerd v1.5.8 // indirect
 	github.com/containerd/continuity v0.1.0 // indirect
 	github.com/daixiang0/gci v0.2.9 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
